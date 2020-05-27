@@ -1,0 +1,95 @@
+name: $(date:yyyyMMdd)$(rev:.r)-Boost-$(VERSION)
+trigger: none
+pr:
+  autoCancel: true
+  branches:
+    include:
+    - master
+  paths:
+    exclude:
+    - versions-manifest.json
+
+stages:
+- stage: Build_Boost_Ubuntu_1604
+  dependsOn: []
+  variables:
+    VmImage: ubuntu-16.04
+    Platform: linux-16.04
+    Architecture: x64
+    Toolset: gcc
+  jobs:
+  - template: /azure-pipelines/templates/build-job.yml
+
+- stage: Test_Boost_Ubuntu_1604
+  condition: succeeded()
+  dependsOn: Build_Boost_Ubuntu_1604
+  variables:
+    VmImage: ubuntu-16.04
+    Platform: linux-16.04
+    Architecture: x64
+    Toolset: gcc
+  jobs:
+  - template: /azure-pipelines/templates/test-job.yml
+
+- stage: Build_Boost_Ubuntu_1804
+  dependsOn: []
+  variables:
+    VmImage: 'ubuntu-18.04'
+    Platform: linux-18.04
+    Architecture: x64
+    Toolset: gcc
+  jobs:
+  - template: /azure-pipelines/templates/build-job.yml
+
+- stage: Test_Boost_Ubuntu_1804
+  condition: succeeded()
+  dependsOn: Build_Boost_Ubuntu_1804
+  variables:
+    VmImage: 'ubuntu-18.04'
+    Platform: linux-18.04
+    Architecture: x64
+    Toolset: gcc
+  jobs:
+  - template: /azure-pipelines/templates/test-job.yml
+
+- stage: Build_Boost_msvc141
+  dependsOn: []
+  variables:
+    VmImage: 'vs2017-win2016'
+    Platform: win32
+    Architecture: x86_64
+    Toolset: msvc-14.1
+  jobs:
+  - template: /azure-pipelines/templates/build-job.yml
+
+- stage: Test_Boost_msvc141
+  condition: succeeded()
+  dependsOn: Build_Boost_msvc141
+  variables:
+    VmImage: 'vs2017-win2016'
+    Platform: win32
+    Architecture: x86_64
+    Toolset: msvc-14.1
+  jobs:
+  - template: /azure-pipelines/templates/test-job.yml
+
+- stage: Build_Boost_msvc142
+  dependsOn: []
+  variables:
+    VmImage: 'windows-2019'
+    Platform: win32
+    Architecture: x86_64
+    Toolset: msvc-14.2
+  jobs:
+  - template: /azure-pipelines/templates/build-job.yml
+
+- stage: Test_Boost_msvc142
+  condition: succeeded()
+  dependsOn: Build_Boost_msvc142
+  variables:
+    VmImage: 'windows-2019'
+    Platform: win32
+    Architecture: x86_64
+    Toolset: msvc-14.2
+  jobs:
+  - template: /azure-pipelines/templates/test-job.yml

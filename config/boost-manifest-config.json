@@ -1,0 +1,9 @@
+{
+    "regex": "boost-\\d+\\.\\d+\\.\\d+-(\\w+)-([\\d\\.]+)?-?([\\w\\.]+)-(x[\\d_]+)",
+    "groups": {
+        "arch": 4,
+        "platform": 1,
+        "platform_version": 2,
+        "toolset": 3
+    }
+}
