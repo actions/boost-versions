@@ -16,10 +16,13 @@ class BoostBuilder {
     The architecture with which Boost should be built.
 
     .PARAMETER TempFolderLocation
-    The location of temporary files that will be used during Boost package generation. Using system BUILD_STAGINGDIRECTORY variable value.
+    The location of temporary files that will be used during Go package generation.
 
-    .PARAMETER ArtifactLocation
-    The location of generated Boost artifact. Using system environment BUILD_BINARIESDIRECTORY variable value.
+    .PARAMETER WorkFolderLocation
+    The location of installation files.
+
+    .PARAMETER ArtifactFolderLocation
+    The location of generated Go artifact.
 
     .PARAMETER InstallationTemplatesLocation
     The location of installation script template. Using "installers" folder from current repository.
@@ -42,8 +45,8 @@ class BoostBuilder {
         $this.Toolset = $toolset
 
         $this.TempFolderLocation = [IO.Path]::GetTempPath()
-        $this.WorkFolderLocation = $env:BUILD_BINARIESDIRECTORY
-        $this.ArtifactFolderLocation = $env:BUILD_STAGINGDIRECTORY
+        $this.WorkFolderLocation = Join-Path $env:RUNNER_TEMP "binaries"
+        $this.ArtifactFolderLocation = Join-Path $env:RUNNER_TEMP "artifact"
 
         $this.InstallationTemplatesLocation = Join-Path -Path $PSScriptRoot -ChildPath "../installers"
     }
@@ -74,6 +77,10 @@ class BoostBuilder {
         .SYNOPSIS
         Generates Boost artifact from downloaded binaries.
         #>
+
+        Write-Host "Create WorkFolderLocation and ArtifactFolderLocation folders"
+        New-Item -Path $this.WorkFolderLocation -ItemType "directory"
+        New-Item -Path $this.ArtifactFolderLocation -ItemType "directory"
 
         Write-Host "Download Boost $($this.Version) source code..."
         $this.Download()
