@@ -16,13 +16,13 @@ class BoostBuilder {
     The architecture with which Boost should be built.
 
     .PARAMETER TempFolderLocation
-    The location of temporary files that will be used during Go package generation.
+    The location of temporary files that will be used during Boost package generation.
 
     .PARAMETER WorkFolderLocation
     The location of installation files.
 
     .PARAMETER ArtifactFolderLocation
-    The location of generated Go artifact.
+    The location of generated Boost artifact.
 
     .PARAMETER InstallationTemplatesLocation
     The location of installation script template. Using "installers" folder from current repository.

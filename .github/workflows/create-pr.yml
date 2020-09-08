@@ -20,7 +20,7 @@ jobs:
         ./helpers/packages-generation/manifest-generator.ps1 -RepositoryFullName "$env:GITHUB_REPOSITORY" `
                                                              -GitHubAccessToken "${{secrets.GITHUB_TOKEN}}" `
                                                              -OutputFile "./versions-manifest.json" `
-                                                             -ConfigurationFile "./config/go-manifest-config.json"
+                                                             -ConfigurationFile "./config/boost-manifest-config.json"
     - name: Create GitHub PR
       run: |
         $formattedDate = Get-Date -Format "MM/dd/yyyy"

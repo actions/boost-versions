@@ -1,12 +1,11 @@
 name: Generate Boost package
 on:
-  push:
   workflow_dispatch:
     inputs:
       VERSION:
         description: 'Boost version to build and upload'
         required: true
-        default: '1.15.0'
+        default: '1.73.0'
       PUBLISH_RELEASES:
         description: 'Whether to publish releases'
         required: true
@@ -20,14 +19,31 @@ defaults:
 
 jobs:
   build_boost:
-    name: Build Boost ${{ github.event.inputs.VERSION }} [${{ matrix.platform }}]
-    runs-on: ubuntu-latest
+    name: Build Boost ${{ github.event.inputs.VERSION }} [${{ matrix.os }}]
+    runs-on: ${{ matrix.os }}
     env: 
-      ARTIFACT_NAME: Boost-${{ github.event.inputs.VERSION }}-${{ matrix.platform }}-x64
+      ARTIFACT_NAME: boost-${{ github.event.inputs.VERSION }}-${{ matrix.platform }}-${{ matrix.toolset }}-${{ matrix.architecture }}
     strategy:
       fail-fast: false
       matrix:
-        platform: [linux, darwin, win32]
+        include:
+          - os: ubuntu-16.04
+            architecture: x64
+            toolset: gcc
+            platform: linux-16.04
+          - os: ubuntu-18.04
+            architecture: x64
+            toolset: gcc
+            platform: linux-18.04
+          - os: windows-2016
+            architecture: x86_64
+            toolset: msvc-14.1
+            platform: win32
+          - os: windows-2019
+            architecture: x86_64
+            toolset: msvc-14.2
+            platform: win32
+
     steps:
     - uses: actions/checkout@v2
       with:
@@ -36,81 +52,94 @@ jobs:
     - name: Build Boost ${{ env.VERSION }}
       run: |
         ./builders/build-boost.ps1 -Version $env:VERSION `
-                                   -Platform ${{ matrix.platform }}
+                                   -Platform ${{ matrix.platform }} `
+                                   -Architecture ${{ matrix.architecture }} `
+                                   -Toolset ${{ matrix.toolset }}
     - name: Publish artifact
       uses: actions/upload-artifact@v2
       with:
         name: ${{ env.ARTIFACT_NAME }}
         path: ${{ runner.temp }}/artifact
 
-  # test_boost:
-  #   name: Test Boost ${{ github.event.inputs.VERSION }} [${{ matrix.platform }}]
-  #   needs: build_boost
-  #   runs-on: ${{ matrix.os }}
-  #   env: 
-  #     ARTIFACT_NAME: boost-${{ github.event.inputs.VERSION }}-${{ matrix.platform }}-x64
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       include:
-  #       - os: ubuntu-latest
-  #         platform: linux
-  #       - os: macos-latest
-  #         platform: darwin
-  #       - os: windows-latest
-  #         platform: win32
-  #   steps:
-  #   - uses: actions/checkout@v2
-  #     with:
-  #       submodules: true
+  test_boost:
+    name: Test Boost ${{ github.event.inputs.VERSION }} [${{ matrix.platform }}]
+    needs: build_boost
+    runs-on: ${{ matrix.os }}
+    env: 
+      PLATFORM: ${{ matrix.platform }}
+      ARTIFACT_NAME: boost-${{ github.event.inputs.VERSION }}-${{ matrix.platform }}-${{ matrix.toolset }}-${{ matrix.architecture }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - os: ubuntu-16.04
+          platform: linux-16.04
+          toolset: gcc
+          architecture: x64
+        - os: ubuntu-18.04
+          platform: linux-18.04
+          toolset: gcc
+          architecture: x64
+        - os: windows-2016
+          platform: win32
+          toolset: msvc-14.1
+          architecture: x86_64
+        - os: windows-2019
+          platform: win32
+          toolset: msvc-14.2
+          architecture: x86_64
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
 
-  #   - name: Fully cleanup the toolcache directory before testing
-  #     run: ./helpers/clean-toolcache.ps1 -ToolName "boost"
+    - name: Fully cleanup the toolcache directory before testing
+      run: ./helpers/clean-toolcache.ps1 -ToolName "boost"
 
-  #   - name: Download artifact
-  #     uses: actions/download-artifact@v2
-  #     with:
-  #       path: ${{ runner.temp }}
+    - name: Download artifact
+      uses: actions/download-artifact@v2
+      with:
+        path: ${{ runner.temp }}
 
-  #   - name: Extract files
-  #     run: |
-  #       if ('${{ matrix.platform }}' -eq 'win32') {
-  #         $artifactName = "${{ env.ARTIFACT_NAME }}.zip"
-  #         7z.exe x "$artifactName" -y | Out-Null 
-  #       } else {
-  #         $artifactName = "${{ env.ARTIFACT_NAME }}.tar.gz"
-  #         tar -xzf $artifactName
-  #       }
-  #     working-directory: ${{ runner.temp }}/${{ env.ARTIFACT_NAME }}
+    - name: Extract files
+      run: |
+          $artifactName = "${{ env.ARTIFACT_NAME }}.tar.gz"
+          tar -xzf $artifactName
+      working-directory: ${{ runner.temp }}/${{ env.ARTIFACT_NAME }}
 
-  #   - name: Apply build artifact to the local machine
-  #     run: |
-  #       if ('${{ matrix.platform }}' -eq 'win32') { powershell ./setup.ps1 } else { sh ./setup.sh }
-  #     working-directory: ${{ runner.temp }}/${{ env.ARTIFACT_NAME }}
+    - name: Apply build artifact to the local machine
+      run: |
+        if ('${{ matrix.platform }}' -eq 'win32') { powershell ./setup.ps1 } else { sh ./setup.sh }
+      working-directory: ${{ runner.temp }}/${{ env.ARTIFACT_NAME }}
 
-  #   - name: Setup Boost ${{ env.VERSION }}
-  #     uses: actions/setup-boost@v2.1.1
-  #     with:
-  #       boost-version: ${{ env.VERSION }}
+    - name: Setup BOOST_ROOT ${{ github.event.inputs.VERSION }}
+      run: |
+        $targetPath = $env:AGENT_TOOLSDIRECTORY
+        if ([string]::IsNullOrEmpty($targetPath)) {
+            # GitHub Windows images don't have `AGENT_TOOLSDIRECTORY` variable
+            $targetPath = $env:RUNNER_TOOL_CACHE
+        }
+        $BoostToolcachePath = Join-Path -Path $targetPath -ChildPath "boost"
+        $BoostToolcacheVersionPath = Join-Path -Path $BoostToolcachePath -ChildPath "${{ github.event.inputs.VERSION }}"
+        $boostDirectory = Join-Path $BoostToolcacheVersionPath "${{ matrix.architecture }}"
+        $LD_LIBRARY = Join-Path -Path $boostDirectory -ChildPath "lib"
+        Write-Host "BOOST_ROOT = ${boostDirectory}"
+        echo "::set-env name=BOOST_ROOT::${boostDirectory}"
+        echo "::set-env name=LD_LIBRARY_PATH::${LD_LIBRARY}"
 
-  #   - name: Wait for the logs
-  #     run: |
-  #       Write-Host "Fake step that do nothing"
-  #       Write-Host "We need it because log of previous step 'Setup Boost' is not available here yet."
-  #       Write-Host "In testing step (Boost.Tests.ps1) we analyze build log of 'Setup Boost' task"
-  #       Write-Host "to determine if Boost.js version was consumed from cache and was downloaded"
-  #       for ($i = 0; $i -lt 200; $i++) { Get-Random }
-  #   - name: Run tests
-  #     run: |
-  #       Install-Module Pester -Force -Scope CurrentUser
-  #       Import-Module Pester
-  #       Invoke-Pester -Script ./Boost.Tests.ps1 -EnableExit
-  #     working-directory: ./tests
+    - name: Run tests
+      run: |
+        Install-Module Pester -Force -Scope CurrentUser
+        Import-Module Pester
+        $Platform = If ("${{ matrix.platform }}" -eq "win32") { "Windows" } else { "Nix" }
+        Invoke-Pester -Script ./Common.Tests.ps1 -EnableExit
+        Invoke-Pester -Script "./${Platform}.Tests.ps1" -EnableExit
+      working-directory: ./tests
 
   publish_release:
     name: Publish release
     if: github.event.inputs.PUBLISH_RELEASES == 'true'
-    # needs: test_boost
+    needs: test_boost
     runs-on: ubuntu-latest
     steps:
     - uses: actions/download-artifact@v2
