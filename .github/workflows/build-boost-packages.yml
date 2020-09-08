@@ -55,6 +55,7 @@ jobs:
                                    -Platform ${{ matrix.platform }} `
                                    -Architecture ${{ matrix.architecture }} `
                                    -Toolset ${{ matrix.toolset }}
+
     - name: Publish artifact
       uses: actions/upload-artifact@v2
       with:
@@ -154,6 +155,7 @@ jobs:
         release_name: ${{ env.VERSION }}
         body: |
           Boost ${{ env.VERSION }}
+
     - name: Upload release assets
       uses: actions/github-script@v2
       with:

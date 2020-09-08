@@ -79,8 +79,8 @@ class BoostBuilder {
         #>
 
         Write-Host "Create WorkFolderLocation and ArtifactFolderLocation folders"
-        New-Item -Path $this.WorkFolderLocation -ItemType "directory"
-        New-Item -Path $this.ArtifactFolderLocation -ItemType "directory"
+        New-Item -Path $this.WorkFolderLocation -ItemType "Directory"
+        New-Item -Path $this.ArtifactFolderLocation -ItemType "Directory"
 
         Write-Host "Download Boost $($this.Version) source code..."
         $this.Download()
