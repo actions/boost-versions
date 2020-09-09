@@ -37,11 +37,11 @@ jobs:
             platform: linux-18.04
           - os: windows-2016
             architecture: x86_64
-            toolset: msvc14.1
+            toolset: msvc-14.1
             platform: win32
           - os: windows-2019
             architecture: x86_64
-            toolset: msvc14.2
+            toolset: msvc-14.2
             platform: win32
 
     steps:
@@ -63,7 +63,7 @@ jobs:
         path: ${{ runner.temp }}/artifact
 
   test_boost:
-    name: Test Boost ${{ github.event.inputs.VERSION }} [${{ matrix.platform }}]
+    name: Test Boost ${{ github.event.inputs.VERSION }} [${{ matrix.os }}]
     needs: build_boost
     runs-on: ${{ matrix.os }}
     env: 
@@ -83,11 +83,11 @@ jobs:
           architecture: x64
         - os: windows-2016
           platform: win32
-          toolset: msvc14.1
+          toolset: msvc-14.1
           architecture: x86_64
         - os: windows-2019
           platform: win32
-          toolset: msvc14.2
+          toolset: msvc-14.2
           architecture: x86_64
     steps:
     - uses: actions/checkout@v2
@@ -104,7 +104,7 @@ jobs:
 
     - name: Extract files
       run: |
-          $artifactName = "${{ env.ARTIFACT_NAME }}.tar.gz"
+          $artifactName = Get-ChildItem -Name
           If ("${{ matrix.platform }}" -eq "win32") {
             $assetTarPath = $artifactName.TrimEnd(".tar.gz")
             7z x $artifactName -o"$assetTarPath" -y | Out-Null
@@ -173,6 +173,7 @@ jobs:
               data: fs.readFileSync(`./${artifactDir}/${artifactName}`) 
             });
           }
+
   trigger_pr:
     name: Trigger "Create Pull Request" workflow
     needs: publish_release
