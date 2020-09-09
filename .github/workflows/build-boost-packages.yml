@@ -105,7 +105,13 @@ jobs:
     - name: Extract files
       run: |
           $artifactName = "${{ env.ARTIFACT_NAME }}.tar.gz"
-          tar -xzf $artifactName
+          If ("${{ matrix.platform }}" -eq "win32") {
+            $assetTarPath = $artifactName.TrimEnd(".tar.gz")
+            7z x $artifactName -o"$assetTarPath" -y | Out-Null
+            7z x $assetTarPath -y | Out-Null
+          } else {
+            tar -xzf $artifactName
+          }
       working-directory: ${{ runner.temp }}/${{ env.ARTIFACT_NAME }}
 
     - name: Apply build artifact to the local machine
@@ -115,14 +121,8 @@ jobs:
 
     - name: Setup BOOST_ROOT ${{ github.event.inputs.VERSION }}
       run: |
-        $targetPath = $env:AGENT_TOOLSDIRECTORY
-        if ([string]::IsNullOrEmpty($targetPath)) {
-            # GitHub Windows images don't have `AGENT_TOOLSDIRECTORY` variable
-            $targetPath = $env:RUNNER_TOOL_CACHE
-        }
-        $BoostToolcachePath = Join-Path -Path $targetPath -ChildPath "boost"
-        $BoostToolcacheVersionPath = Join-Path -Path $BoostToolcachePath -ChildPath "${{ github.event.inputs.VERSION }}"
-        $boostDirectory = Join-Path $BoostToolcacheVersionPath "${{ matrix.architecture }}"
+        Import-Module (Join-Path $env:GITHUB_WORKSPACE "helpers" | Join-Path -ChildPath "common-helpers.psm1") -DisableNameChecking
+        $boostDirectory = GetToolDirectory -ToolName "boost" -Version "${{ github.event.inputs.VERSION }}" -Architecture "${{ matrix.architecture }}"
         $LD_LIBRARY = Join-Path -Path $boostDirectory -ChildPath "lib"
         Write-Host "BOOST_ROOT = ${boostDirectory}"
         echo "::set-env name=BOOST_ROOT::${boostDirectory}"
