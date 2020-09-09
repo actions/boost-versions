@@ -37,11 +37,11 @@ jobs:
             platform: linux-18.04
           - os: windows-2016
             architecture: x86_64
-            toolset: msvc-14.1
+            toolset: msvc14.1
             platform: win32
           - os: windows-2019
             architecture: x86_64
-            toolset: msvc-14.2
+            toolset: msvc14.2
             platform: win32
 
     steps:
@@ -83,11 +83,11 @@ jobs:
           architecture: x64
         - os: windows-2016
           platform: win32
-          toolset: msvc-14.1
+          toolset: msvc14.1
           architecture: x86_64
         - os: windows-2019
           platform: win32
-          toolset: msvc-14.2
+          toolset: msvc14.2
           architecture: x86_64
     steps:
     - uses: actions/checkout@v2
