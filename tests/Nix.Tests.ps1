@@ -1,18 +1,15 @@
-param (
-    [Version] $Version,
-    [String] $Platform
-)
-
 Import-Module (Join-Path $PSScriptRoot "../helpers/pester-extensions.psm1")
 
-Set-Location "sources"
-$env:Path="$env:Path;${env:BOOST_ROOT}\lib"
+BeforeAll {
+    Set-Location "sources"
+    $env:Path="$env:Path;${env:BOOST_ROOT}\lib"
+    if (${env:PLATFORM} -eq "linux-16.04") {
+        Write-Host "Install dependencies"
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 60 `
+            --slave /usr/bin/g++ g++ /usr/bin/g++-7 
+        sudo update-alternatives --config gcc
+}
 
-if ($Platform -eq "linux-16.04") {
-    Write-Host "Install dependencies"
-    sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 60 `
-        --slave /usr/bin/g++ g++ /usr/bin/g++-7 
-    sudo update-alternatives --config gcc
 }
 
 Describe "Nix Tests" {
@@ -33,10 +30,10 @@ Describe "Nix Tests" {
             "-w", "-DBOOST_LOG_DYN_LINK",
             "-I", "${env:BOOST_ROOT}/include",
             "-L", "${env:BOOST_ROOT}/lib", "main_log.cpp",
-            "-l:libboost_log_setup-mt-d-x64.so.${Version}",
-            "-l:libboost_log-mt-d-x64.so.${Version}",
-            "-l:libboost_thread-mt-d-x64.so.${Version}",
-            "-l:libboost_filesystem-mt-d-x64.so.${Version}",
+            "-l:libboost_log_setup-mt-d-x64.so.${env:VERSION}",
+            "-l:libboost_log-mt-d-x64.so.${env:VERSION}",
+            "-l:libboost_thread-mt-d-x64.so.${env:VERSION}",
+            "-l:libboost_filesystem-mt-d-x64.so.${env:VERSION}",
             "-lpthread"
         )
 
@@ -49,10 +46,10 @@ Describe "Nix Tests" {
             "-w", "-DBOOST_LOG_DYN_LINK",
             "-I", "${env:BOOST_ROOT}/include",
             "-L", "${env:BOOST_ROOT}/lib", "main_log.cpp",
-            "-l:libboost_log_setup-mt-x64.so.${Version}",
-            "-l:libboost_log-mt-x64.so.${Version}",
-            "-l:libboost_thread-mt-x64.so.${Version}",
-            "-l:libboost_filesystem-mt-x64.so.${Version}", 
+            "-l:libboost_log_setup-mt-x64.so.${env:VERSION}",
+            "-l:libboost_log-mt-x64.so.${env:VERSION}",
+            "-l:libboost_thread-mt-x64.so.${env:VERSION}",
+            "-l:libboost_filesystem-mt-x64.so.${env:VERSION}", 
             "-lpthread"
         )
 

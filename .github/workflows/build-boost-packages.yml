@@ -1,0 +1,192 @@
+name: Generate Boost package
+on:
+  workflow_dispatch:
+    inputs:
+      VERSION:
+        description: 'Boost version to build and upload'
+        required: true
+        default: '1.73.0'
+      PUBLISH_RELEASES:
+        description: 'Whether to publish releases'
+        required: true
+        default: 'false'
+
+env:
+  VERSION: ${{ github.event.inputs.VERSION }}
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  build_boost:
+    name: Build Boost ${{ github.event.inputs.VERSION }} [${{ matrix.os }}]
+    runs-on: ${{ matrix.os }}
+    env: 
+      ARTIFACT_NAME: boost-${{ github.event.inputs.VERSION }}-${{ matrix.platform }}-${{ matrix.toolset }}-${{ matrix.architecture }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-16.04
+            architecture: x64
+            toolset: gcc
+            platform: linux-16.04
+          - os: ubuntu-18.04
+            architecture: x64
+            toolset: gcc
+            platform: linux-18.04
+          - os: windows-2016
+            architecture: x86_64
+            toolset: msvc-14.1
+            platform: win32
+          - os: windows-2019
+            architecture: x86_64
+            toolset: msvc-14.2
+            platform: win32
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    - name: Build Boost ${{ env.VERSION }}
+      run: |
+        ./builders/build-boost.ps1 -Version $env:VERSION `
+                                   -Platform ${{ matrix.platform }} `
+                                   -Architecture ${{ matrix.architecture }} `
+                                   -Toolset ${{ matrix.toolset }}
+
+    - name: Publish artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ env.ARTIFACT_NAME }}
+        path: ${{ runner.temp }}/artifact
+
+  test_boost:
+    name: Test Boost ${{ github.event.inputs.VERSION }} [${{ matrix.os }}]
+    needs: build_boost
+    runs-on: ${{ matrix.os }}
+    env: 
+      PLATFORM: ${{ matrix.platform }}
+      ARTIFACT_NAME: boost-${{ github.event.inputs.VERSION }}-${{ matrix.platform }}-${{ matrix.toolset }}-${{ matrix.architecture }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - os: ubuntu-16.04
+          platform: linux-16.04
+          toolset: gcc
+          architecture: x64
+        - os: ubuntu-18.04
+          platform: linux-18.04
+          toolset: gcc
+          architecture: x64
+        - os: windows-2016
+          platform: win32
+          toolset: msvc-14.1
+          architecture: x86_64
+        - os: windows-2019
+          platform: win32
+          toolset: msvc-14.2
+          architecture: x86_64
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    - name: Fully cleanup the toolcache directory before testing
+      run: ./helpers/clean-toolcache.ps1 -ToolName "boost"
+
+    - name: Download artifact
+      uses: actions/download-artifact@v2
+      with:
+        path: ${{ runner.temp }}
+
+    - name: Extract files
+      run: |
+          $artifactName = Get-ChildItem -Name
+          If ("${{ matrix.platform }}" -eq "win32") {
+            $assetTarPath = $artifactName.TrimEnd(".tar.gz")
+            7z x $artifactName -o"$assetTarPath" -y | Out-Null
+            7z x $assetTarPath -y | Out-Null
+          } else {
+            tar -xzf $artifactName
+          }
+      working-directory: ${{ runner.temp }}/${{ env.ARTIFACT_NAME }}
+
+    - name: Apply build artifact to the local machine
+      run: |
+        if ('${{ matrix.platform }}' -eq 'win32') { powershell ./setup.ps1 } else { sh ./setup.sh }
+      working-directory: ${{ runner.temp }}/${{ env.ARTIFACT_NAME }}
+
+    - name: Setup BOOST_ROOT ${{ github.event.inputs.VERSION }}
+      run: |
+        Import-Module (Join-Path $env:GITHUB_WORKSPACE "helpers" | Join-Path -ChildPath "common-helpers.psm1") -DisableNameChecking
+        $boostDirectory = GetToolDirectory -ToolName "boost" -Version "${{ github.event.inputs.VERSION }}" -Architecture "${{ matrix.architecture }}"
+        $LD_LIBRARY = Join-Path -Path $boostDirectory -ChildPath "lib"
+        Write-Host "BOOST_ROOT = ${boostDirectory}"
+        echo "::set-env name=BOOST_ROOT::${boostDirectory}"
+        echo "::set-env name=LD_LIBRARY_PATH::${LD_LIBRARY}"
+
+    - name: Run tests
+      run: |
+        Install-Module Pester -Force -Scope CurrentUser
+        Import-Module Pester
+        $Platform = If ("${{ matrix.platform }}" -eq "win32") { "Windows" } else { "Nix" }
+        Invoke-Pester -Script ./Common.Tests.ps1 -EnableExit
+        Invoke-Pester -Script "./${Platform}.Tests.ps1" -EnableExit
+      working-directory: ./tests
+
+  publish_release:
+    name: Publish release
+    if: github.event.inputs.PUBLISH_RELEASES == 'true'
+    needs: test_boost
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v2
+
+    - name: Publish Release ${{ env.VERSION }}
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ env.VERSION }}-${{ github.run_id }}
+        release_name: ${{ env.VERSION }}
+        body: |
+          Boost ${{ env.VERSION }}
+
+    - name: Upload release assets
+      uses: actions/github-script@v2
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const fs = require('fs');
+          for (let artifactDir of fs.readdirSync('.')) {
+            let artifactName = fs.readdirSync(`${artifactDir}`)[0];
+            console.log(`Upload ${artifactName} asset`);
+            github.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: ${{ steps.create_release.outputs.id }},
+              name: artifactName,
+              data: fs.readFileSync(`./${artifactDir}/${artifactName}`) 
+            });
+          }
+
+  trigger_pr:
+    name: Trigger "Create Pull Request" workflow
+    needs: publish_release
+    runs-on: ubuntu-latest
+    steps:
+    - name: Trigger "Create Pull Request" workflow
+      uses: actions/github-script@v3
+      with:
+        github-token: ${{ secrets.PERSONAL_TOKEN }}
+        script: |
+          github.actions.createWorkflowDispatch({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: 'create-pr.yml',
+            ref: 'main'
+          });
