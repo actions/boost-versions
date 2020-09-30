@@ -125,8 +125,8 @@ jobs:
         $boostDirectory = GetToolDirectory -ToolName "boost" -Version "${{ github.event.inputs.VERSION }}" -Architecture "${{ matrix.architecture }}"
         $LD_LIBRARY = Join-Path -Path $boostDirectory -ChildPath "lib"
         Write-Host "BOOST_ROOT = ${boostDirectory}"
-        echo "BOOST_ROOT=${boostDirectory}" >> $GITHUB_ENV
-        echo "LD_LIBRARY_PATH=${LD_LIBRARY}" >> $GITHUB_ENV
+        echo "BOOST_ROOT=${boostDirectory}" >> $env:GITHUB_ENV
+        echo "LD_LIBRARY_PATH=${LD_LIBRARY}" >> $env:GITHUB_ENV
 
     - name: Run tests
       run: |
