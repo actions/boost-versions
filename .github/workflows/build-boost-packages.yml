@@ -10,19 +10,26 @@ on:
         description: 'Whether to publish releases'
         required: true
         default: 'false'
+  pull_request:
+    paths-ignore:
+    - 'versions-manifest.json'
+    - 'LICENSE'
+    - '**.md'
+    branches:
+    - 'main'
 
 env:
-  VERSION: ${{ github.event.inputs.VERSION }}
+  VERSION: ${{ github.event.inputs.VERSION || '1.73.0' }}
 defaults:
   run:
     shell: pwsh
 
 jobs:
   build_boost:
-    name: Build Boost ${{ github.event.inputs.VERSION }} [${{ matrix.os }}]
+    name: Build Boost ${{ github.event.inputs.VERSION || '1.73.0' }} [${{ matrix.os }}]
     runs-on: ${{ matrix.os }}
     env: 
-      ARTIFACT_NAME: boost-${{ github.event.inputs.VERSION }}-${{ matrix.platform }}-${{ matrix.toolset }}-${{ matrix.architecture }}
+      ARTIFACT_NAME: boost-${{ github.event.inputs.VERSION || '1.73.0' }}-${{ matrix.platform }}-${{ matrix.toolset }}-${{ matrix.architecture }}
     strategy:
       fail-fast: false
       matrix:
@@ -63,12 +70,12 @@ jobs:
         path: ${{ runner.temp }}/artifact
 
   test_boost:
-    name: Test Boost ${{ github.event.inputs.VERSION }} [${{ matrix.os }}]
+    name: Test Boost ${{ github.event.inputs.VERSION || '1.73.0' }} [${{ matrix.os }}]
     needs: build_boost
     runs-on: ${{ matrix.os }}
     env: 
       PLATFORM: ${{ matrix.platform }}
-      ARTIFACT_NAME: boost-${{ github.event.inputs.VERSION }}-${{ matrix.platform }}-${{ matrix.toolset }}-${{ matrix.architecture }}
+      ARTIFACT_NAME: boost-${{ github.event.inputs.VERSION || '1.73.0' }}-${{ matrix.platform }}-${{ matrix.toolset }}-${{ matrix.architecture }}
     strategy:
       fail-fast: false
       matrix:
@@ -119,10 +126,10 @@ jobs:
         if ('${{ matrix.platform }}' -eq 'win32') { powershell ./setup.ps1 } else { sh ./setup.sh }
       working-directory: ${{ runner.temp }}/${{ env.ARTIFACT_NAME }}
 
-    - name: Setup BOOST_ROOT ${{ github.event.inputs.VERSION }}
+    - name: Setup BOOST_ROOT ${{ env.VERSION }}
       run: |
         Import-Module (Join-Path $env:GITHUB_WORKSPACE "helpers" | Join-Path -ChildPath "common-helpers.psm1") -DisableNameChecking
-        $boostDirectory = GetToolDirectory -ToolName "boost" -Version "${{ github.event.inputs.VERSION }}" -Architecture "${{ matrix.architecture }}"
+        $boostDirectory = GetToolDirectory -ToolName "boost" -Version "${{ env.VERSION }}" -Architecture "${{ matrix.architecture }}"
         $LD_LIBRARY = Join-Path -Path $boostDirectory -ChildPath "lib"
         Write-Host "BOOST_ROOT = ${boostDirectory}"
         echo "BOOST_ROOT=${boostDirectory}" >> $env:GITHUB_ENV
@@ -139,7 +146,7 @@ jobs:
 
   publish_release:
     name: Publish release
-    if: github.event.inputs.PUBLISH_RELEASES == 'true'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.PUBLISH_RELEASES == 'true'
     needs: test_boost
     runs-on: ubuntu-latest
     steps:
