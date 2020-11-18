@@ -1,5 +1,5 @@
-using module "./builders/win-boost-builder.psm1"
-using module "./builders/nix-boost-builder.psm1"
+using module "./win-boost-builder.psm1"
+using module "./nix-boost-builder.psm1"
 
 <#
 .SYNOPSIS

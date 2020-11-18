@@ -1,4 +1,4 @@
-using module "./builders/boost-builder.psm1"
+using module "./boost-builder.psm1"
 
 class NixBoostBuilder : BoostBuilder {
     <#
